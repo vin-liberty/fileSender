@@ -1,6 +1,6 @@
 # FileSender
 ## 介绍
-网页端实现文件上传下载，可以用于在不同设备间传文件 
+网页端实现文件上传下载，可以用于在不同设备间传文件  
 灵感来源：https://github.com/riverify/swift-send
 
 ## 基于
