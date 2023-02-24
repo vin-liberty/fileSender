@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-GLhlTQ8iRABdZLl6O3oVMWSktQOp6b7In1Zl3/Jr59b6EGGoI1aFkw7cmDA6j6gD" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+    <title>File Sender</title>
+    <style>
+        .title {
+            margin-left: 25%;
+            margin-top: 3%;
+        }
+
+        .wrapper {
+            margin-left: 30%;
+            margin-right: 30%;
+            margin-top: 5%;
+        }
+
+        h3 {
+            font-size: 20px;
+            font-weight: bold;
+            color: #1a1a1a;
+            margin-bottom: 15px;
+        }
+
+        button {
+            margin-top: 10px;
+        }
+
+        .form-control {
+            margin-bottom: 10px;
+        }
+
+        .file-get {
+            margin-top: 5%;
+        }
+    </style>
+</head>
+
+<body>
+<div class="title">
+    <h1>File Sender</h1>
+</div>
+<div class="wrapper">
+    <div class="file-upload">
+        <h3>文件上传</h3>
+        <input type="file" name="file" class="form-control" id="fileInput">
+        <input type="text" class="form-control" placeholder="请输入密钥" id="keyInput" disabled>
+        <span>文件过期时间: </span>
+        <select class="form-select" aria-label="Default select example" id="expireSelect">
+            <option value="1">1天</option>
+            <option value="3" selected>3天</option>
+            <option value="7">7天</option>
+            <option value="30">30天</option>
+        </select>
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="flexCheckDefault" onchange="autoGenerateKey()" checked>
+            <label class="form-check-label" for="flexCheckDefault">
+                系统自动生成密钥
+            </label>
+        </div>
+        <button class="btn btn-primary" id="uploadButton" onclick="fileUpload()">上传文件</button>
+    </div>
+
+    <div class="file-get">
+        <h3>文件获取</h3>
+        <p>输入密钥以获取文件</p>
+        <input type="text" class="form-control" id="getFileInput">
+        <button class="btn btn-primary" onclick="getFile()">获取文件</button>
+    </div>
+</div>
+</body>
+<script>
+    const fileInput = document.getElementById('fileInput');
+    const keyInput = document.getElementById('keyInput')
+    const checkBox = document.getElementById('flexCheckDefault')
+    const expireSelect = document.getElementById('expireSelect');
+    const getFileInput = document.getElementById('getFileInput')
+
+    function autoGenerateKey() {
+        keyInput.disabled = checkBox.checked
+    }
+
+    function fileUpload() {
+        if (fileInput.files.length === 0) {
+            alert('请上传文件')
+            return
+        }
+        if (!expireSelect.value) {
+            alert('请选择文件过期时间')
+            return
+        }
+        const file = fileInput.files[0];
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('autoGeneKey', checkBox.checked)
+        formData.append('expireTime', expireSelect.value)
+        if (!checkBox.checked) {
+            if (!keyInput.value) {
+                alert('请输入提取码')
+                return
+            }
+            formData.append('key', keyInput.value)
+        }
+
+        axios.post('/upload', formData).then(response => {
+            navigator.clipboard.writeText(response.data.key)
+            const code = response.data.code
+            if (code === 200) {
+                alert(`文件上传成功，提取码为${response.data.key}，已保存至剪切板`)
+            } else if (code === 201) {
+                alert(`文件上传成功，提取码重复，系统自动生成的提取码为${response.data.key}，已保存至剪切板`)
+            } else {
+                alert('文件上传失败')
+            }
+
+        }).catch(error => {
+            console.error(error);
+            alert('文件上传失败')
+        });
+    }
+
+    function getFile() {
+        const key = getFileInput.value
+        if (key === '') {
+            alert('请输入密钥')
+            return
+        }
+        axios.get(`/download/${key}`, {responseType: 'blob'}).then(async (response) => {
+            const code = response.data.code
+            if (code === 500) {
+                alert('提取码不存在')
+            }
+            if (code === 501) {
+                alert('提取码已过期')
+            }
+            const contentType = response.headers['content-type']
+            const {data: filename} = await axios.get(`/filename/${key}`)
+            console.log(filename)
+            const blob = new Blob([response.data], {type: contentType})
+            saveAs(blob, filename)
+        }).catch((error) => {
+            alert('文件获取失败')
+        })
+    }
+</script>
+</html>
